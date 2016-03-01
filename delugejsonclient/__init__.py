@@ -1,0 +1,2 @@
+from delugejsonclient import client
+from delugejsonclient import torrentutils
