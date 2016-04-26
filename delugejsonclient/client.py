@@ -1,11 +1,8 @@
 import threading
-from time import sleep
-
 import base64
 import requests
-
 from delugejsonclient import torrentutils
-
+from time import sleep
 
 class LoginException(Exception):
     pass
@@ -15,7 +12,7 @@ class RequestException(Exception):
 
 class DelugeJsonClient:
 
-    def __init__(self):
+    def __init__(self, password):
         self.headers = {
         'Content-type': 'application/json',
         'Accept': 'application/json'
@@ -23,7 +20,7 @@ class DelugeJsonClient:
         self.lock = threading.Lock()
         self.session = requests.session()
         self.session.headers = self.headers
-        self.password = "deluge"
+        self.password = password
         self.requestNum = 0
 
     def _url(self):
@@ -81,9 +78,9 @@ class DelugeJsonClient:
             raise RequestException(jreply["error"]["message"])
 
     def add_torrent_verify(self, torrent_file, dl_location):
-        torrent_data = torrent_file.read()
-        self._add_torrent_contents(torrent_data, dl_location)
-        file_hash = torrentutils.get_hash_from_torrent_contents(torrent_data)
+        #torrent_data = torrent_file.read()
+        self._add_torrent_contents(torrent_file, dl_location)
+        file_hash = torrentutils.get_hash_from_torrent_contents(torrent_file)
         sleep(1)
         t_hash = self.get_torrent_info(torrent_hash=[file_hash], filter=["hash"])[0]["hash"]
         if t_hash != file_hash:
