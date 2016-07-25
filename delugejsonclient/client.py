@@ -59,7 +59,7 @@ class DelugeJsonClient:
         if 'torrent_hash' in kwargs:
             hash_list = kwargs['torrent_hash']
 
-        field_filter = ["hash", "name", "progress", "save_path"]
+        field_filter = ["hash", "name", "progress", "save_path", "total_size"]
         if 'filter' in kwargs:
             field_filter = kwargs['filter']
 
@@ -82,10 +82,11 @@ class DelugeJsonClient:
         self._add_torrent_contents(torrent_file, dl_location)
         file_hash = torrentutils.get_hash_from_torrent_contents(torrent_file)
         sleep(1)
-        t_hash = self.get_torrent_info(torrent_hash=[file_hash], filter=["hash"])[0]["hash"]
+        t_info = self.get_torrent_info(torrent_hash=[file_hash])[0]
+        t_hash = t_info["hash"]
         if t_hash != file_hash:
             raise RequestException("Could not verify torrent uploaded")
-        return t_hash
+        return t_info
 
     def remove_torrent(self, torrent_hash, remove_data):
         reply = self._request("webapi.remove_torrent", torrent_hash, remove_data)

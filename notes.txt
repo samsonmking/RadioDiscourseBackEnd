@@ -1,0 +1,7 @@
+POST JSON
+curl -i -H "Content-Type: application/json" http://127.0.0.1/rd/api/whatcd -d '{"searchstr":"hoops"}'
+
+32431138
+
+Generate oauth for gmusic
+Musicmanager.perform_oauth(storage_filepath=u'/home/docs/.local/share/gmusicapi/oauth.cred', open_browser=False)
