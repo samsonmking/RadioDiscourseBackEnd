@@ -1,17 +1,17 @@
 from flask import Flask, request
-from flask.ext.restful import Api, Resource, reqparse, fields, marshal
-from flask.ext.socketio import SocketIO, emit
+from flask_restful import Api, Resource, reqparse, fields, marshal
+from flask_socketio import SocketIO, emit
 from delugejsonclient import client
 from gmusicapi import Musicmanager
-from threading import  Thread
 import time
 import whatapi
 import os
-import threading
+
+async_mode = None
 
 app = Flask(__name__)
 api = Api(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode=async_mode)
 tclient = client.DelugeJsonClient("deluge")
 
 #configs
@@ -29,14 +29,6 @@ def add_cors_headers(response):
     return response
 app.after_request(add_cors_headers)
 
-# torrent_fields = {
-#     'hash': fields.String,
-#     'name': fields.String,
-#     'dl_location': fields.String,
-#     'dl_progress': fields.Integer,
-#     'ul_progress': fields.Integer
-# }
-
 cookies =  None
 
 torrents = {}
@@ -50,6 +42,8 @@ def _get_torrent_list():
 @socketio.on('connect', namespace='/socket')
 def connect():
     emit('torrentList', _get_torrent_list())
+
+
 
 class Torrent(Resource):
     def __init__(self):
@@ -75,36 +69,35 @@ class Torrent(Resource):
         torrentcontent = apihandle.get_torrent(id)
         tinfo = tclient.add_torrent_verify(torrentcontent, "/home/dev/seed")
         torrenthash = tinfo['hash']
-        process = threading.Thread(target=self._process_torrent, kwargs={'thash': torrenthash})
-        process.start()
+        thread = socketio.start_background_task(target=self._process_torrent, thash=torrenthash)
         torrents[torrenthash] = {'id': id,
                                 'hash': torrenthash,
                                 'name': tinfo['name'],
                                 'size': tinfo['total_size'],
                                 'dl': 0,
                                 'ul': 0}
-        return {'id': id,
-                'hash':torrenthash}
+        return torrents[torrenthash]
 
     def _process_torrent(self, **kwargs):
         #wait for torrent to download
+
         torrenthash = kwargs["thash"]
         dl = 0
         tdata = {}
         while dl < 100:
-            time.sleep(1)
+            socketio.sleep(1)
             tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
             dl = tdata[0]["progress"]
             torrents[torrenthash]["dl"] = dl
             socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
-            # print('download: ' + str(dl))
 
+        socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
         songpath = tdata[0]["save_path"] + "/" + tdata[0]["name"]
         newsongs = []
         for file in os.listdir(songpath):
             if file.endswith(".mp3"):
                 newsongs.append(songpath + '/' + file)
-
+        socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
         gmusic = Musicmanager()
         gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
         results = gmusic.upload(newsongs, enable_matching=False)
