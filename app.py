@@ -69,13 +69,13 @@ class Torrent(Resource):
         torrentcontent = apihandle.get_torrent(id)
         tinfo = tclient.add_torrent_verify(torrentcontent, "/home/dev/seed")
         torrenthash = tinfo['hash']
-        thread = socketio.start_background_task(target=self._process_torrent, thash=torrenthash)
         torrents[torrenthash] = {'id': id,
-                                'hash': torrenthash,
-                                'name': tinfo['name'],
-                                'size': tinfo['total_size'],
-                                'dl': 0,
-                                'ul': 0}
+                                 'hash': torrenthash,
+                                 'name': tinfo['name'],
+                                 'size': tinfo['total_size'],
+                                 'dl': 0,
+                                 'ul': 0}
+        thread = socketio.start_background_task(target=self._process_torrent, thash=torrenthash)
         return torrents[torrenthash]
 
     def _process_torrent(self, **kwargs):
@@ -91,13 +91,15 @@ class Torrent(Resource):
             torrents[torrenthash]["dl"] = dl
             socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
 
+        socketio.sleep(1)
         socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
+        
         songpath = tdata[0]["save_path"] + "/" + tdata[0]["name"]
         newsongs = []
         for file in os.listdir(songpath):
             if file.endswith(".mp3"):
                 newsongs.append(songpath + '/' + file)
-        socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
+
         gmusic = Musicmanager()
         gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
         results = gmusic.upload(newsongs, enable_matching=False)
