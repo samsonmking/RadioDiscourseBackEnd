@@ -31,7 +31,17 @@ app.after_request(add_cors_headers)
 
 cookies =  None
 
+# Populate with existing torrents in torrent client
 torrents = {}
+client_torrents = []
+client_torrents = tclient.get_torrent_info()
+for t in client_torrents:
+    thash = t.get('hash')
+    torrents[thash] = {'hash': thash,
+                       'name': t.get('name'),
+                       'size': t.get('total_size'),
+                       'dl': t.get('progress'),
+                       'ul': None}
 
 def _get_torrent_list():
     tlist = []
@@ -43,13 +53,11 @@ def _get_torrent_list():
 def connect():
     emit('torrentList', _get_torrent_list())
 
-
-
 class Torrent(Resource):
     def __init__(self):
 
         #Set-up Parser
-        self.reqparse = reqparse.RequestParser();
+        self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument('id', type = str, location = 'json')
         self.reqparse.add_argument('hash', type = str, location = 'json')
         self.reqparse.add_argument('name', type = str, location = 'json')
@@ -85,34 +93,33 @@ class Torrent(Resource):
         dl = 0
         tdata = {}
         while dl < 100:
-            socketio.sleep(1)
             tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
             dl = tdata[0]["progress"]
-            torrents[torrenthash]["dl"] = dl
+            torrents[torrenthash]["dl"] = "{0:.2f}".format(dl)
             socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
+            socketio.sleep(1)
 
-        socketio.sleep(1)
-        socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
-        
+        gmusic = Musicmanager()
+        gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
+
         songpath = tdata[0]["save_path"] + "/" + tdata[0]["name"]
         newsongs = []
         for file in os.listdir(songpath):
             if file.endswith(".mp3"):
                 newsongs.append(songpath + '/' + file)
 
-        gmusic = Musicmanager()
-        gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
-        results = gmusic.upload(newsongs, enable_matching=False)
-        percent_uploaded = self._get_upload_results(results)
-        torrents[torrenthash]["ul"] = percent_uploaded
-        socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
+        for song in newsongs:
+            results = gmusic.upload(song, enable_matching=False)
+            percent = self._update_upload_results(results, newsongs) + torrents[torrenthash]['ul']
+            torrents[torrenthash]['ul'] = "{0:.2f}".format(percent)
+            socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
+            socketio.sleep(1)
 
-    def _get_upload_results(self, results):
+    def _update_upload_results(self, results, songlist):
+        total = len(songlist)
         uploaded = len(results[0])
         matched = len(results[1])
-        no_upload = len(results[2])
-        total = uploaded + matched + no_upload
-        return (uploaded / total) * 100
+        return ((uploaded + matched) / total) * 100
 
 class WhatCD(Resource):
     def __init__(self):
@@ -126,8 +133,15 @@ class WhatCD(Resource):
             artist_search = args["artist_search"]
             apihandle = whatapi.WhatAPI(username=whatusername, password=whatpassword)
             results = apihandle.request("artist", artistname=artist_search)
+            tgroups = results.get('response').get('torrentgroup')
+            for t in tgroups:
+                t.pop('artists', None)
+                t.pop('extendedArtists', None)
+                t.pop('tags', None)
+
             return {'artist_search': artist_search,
-                    'results': results["response"]["torrentgroup"]}
+                    'results': tgroups}
+
         except whatapi.RequestException as err:
             return {'artist_search': artist_search,
                     'error': 'request exception'}
