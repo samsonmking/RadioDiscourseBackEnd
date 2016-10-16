@@ -5,8 +5,9 @@ import whatapi
 from rd_config import whatpassword, whatusername, delugepassword
 from socket_io import socketio
 from token_auth import  auth
-from radiodiscourse import torrents
+from radiodiscourse import torrents, lock
 import os
+from threading import Thread
 
 tclient = client.DelugeJsonClient(delugepassword)
 
@@ -15,11 +16,13 @@ client_torrents = []
 client_torrents = tclient.get_torrent_info()
 for t in client_torrents:
     thash = t.get('hash')
-    torrents[thash] = {'hash': thash,
-                       'name': t.get('name'),
-                       'size': t.get('total_size'),
-                       'dl': t.get('progress'),
-                       'ul': None}
+    with lock:
+        torrents[thash] = {'hash': thash,
+                           'name': t.get('name'),
+                           'size': t.get('total_size'),
+                           'dl': t.get('progress'),
+                           'ul': None,
+                           'status': 'previous'}
 
 class Torrents(Resource):
     def __init__(self):
@@ -42,14 +45,18 @@ class Torrent(Resource):
         torrentcontent = apihandle.get_torrent(id)
         tinfo = tclient.add_torrent_verify(torrentcontent, "/home/dev/seed")
         torrenthash = tinfo['hash']
-        torrents[torrenthash] = {'id': id,
-                                 'hash': torrenthash,
-                                 'name': tinfo['name'],
-                                 'size': tinfo['total_size'],
-                                 'dl': 0,
-                                 'ul': 0}
-        torrents.move_to_end(torrenthash, last=False)
-        thread = socketio.start_background_task(target=self._process_torrent, thash=torrenthash)
+        with lock:
+            torrents[torrenthash] = {'id': id,
+                                     'hash': torrenthash,
+                                     'name': tinfo['name'],
+                                     'size': tinfo['total_size'],
+                                     'dl': 0,
+                                     'ul': 0,
+                                     'status': 'started'}
+            torrents.move_to_end(torrenthash, last=False)
+        upload_thread = Thread(target=self._process_torrent, kwargs={'thash': torrenthash})
+        upload_thread.start()
+        update_thread = socketio.start_background_task(target=self._update_process_socket, thash=torrenthash)
         return torrents[torrenthash]
 
     def _process_torrent(self, **kwargs):
@@ -59,11 +66,10 @@ class Torrent(Resource):
         dl = 0
         tdata = {}
         while dl < 100:
-            tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
-            dl = tdata[0]["progress"]
-            torrents[torrenthash]["dl"] = "{0:.2f}".format(dl)
-            socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
-            socketio.sleep(1)
+            with lock:
+                tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
+                dl = tdata[0]["progress"]
+                torrents[torrenthash]["dl"] = "{0:.2f}".format(dl)
 
         gmusic = Musicmanager()
         gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
@@ -76,10 +82,25 @@ class Torrent(Resource):
 
         for song in newsongs:
             results = gmusic.upload(song, enable_matching=False)
-            percent = self._update_upload_results(results, newsongs) + float(torrents[torrenthash]['ul'])
-            torrents[torrenthash]['ul'] = "{0:.2f}".format(percent)
-            socketio.emit('torrentUpdate', torrents[torrenthash], namespace='/socket')
-            socketio.sleep(1)
+            with lock:
+                percent = self._update_upload_results(results, newsongs) + float(torrents[torrenthash]['ul'])
+                torrents[torrenthash]['ul'] = "{0:.2f}".format(percent)
+
+        with lock:
+            torrents[torrenthash]['status'] = 'processed'
+            # Fix rounding errors
+            if torrents[torrenthash]['ul'] > 98:
+                torrents[torrenthash]['ul'] = 100
+
+    def _update_process_socket(self, **kwargs):
+        torrenthash = kwargs.get('thash', None)
+        status = None
+        while status != 'processed':
+            with lock:
+                tdata = torrents.get(torrenthash)
+                socketio.emit('torrentUpdate', tdata, namespace='/socket')
+                status = tdata.get('status')
+            socketio.sleep(0.5)
 
     def _update_upload_results(self, results, songlist):
         total = len(songlist)
