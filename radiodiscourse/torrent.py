@@ -2,13 +2,13 @@ from flask_restful import Resource, reqparse
 from delugejsonclient import client
 from gmusicapi import Musicmanager
 import whatapi
-from rd_config import whatpassword, whatusername
+from rd_config import whatpassword, whatusername, delugepassword
 from socket_io import socketio
 from token_auth import  auth
 from radiodiscourse import torrents
 import os
 
-tclient = client.DelugeJsonClient("deluge")
+tclient = client.DelugeJsonClient(delugepassword)
 
 # Populate with existing torrents in torrent client
 client_torrents = []
@@ -37,6 +37,7 @@ class Torrent(Resource):
                                  'size': tinfo['total_size'],
                                  'dl': 0,
                                  'ul': 0}
+        torrents.move_to_end(torrenthash, last=False)
         thread = socketio.start_background_task(target=self._process_torrent, thash=torrenthash)
         return torrents[torrenthash]
 
