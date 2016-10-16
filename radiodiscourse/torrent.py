@@ -21,6 +21,17 @@ for t in client_torrents:
                        'dl': t.get('progress'),
                        'ul': None}
 
+class Torrents(Resource):
+    def __init__(self):
+        super(Torrents, self).__init__()
+
+    @auth.login_required
+    def get(self):
+        tlist = []
+        for key, value in torrents.items():
+            tlist.append(value)
+        return tlist
+
 class Torrent(Resource):
     def __init__(self, **kwargs):
         super(Torrent, self).__init__()
