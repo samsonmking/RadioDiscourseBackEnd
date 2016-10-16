@@ -6,7 +6,6 @@ from rd_config import users
 from radiodiscourse import  app
 
 # Token will last for a week
-
 jwt = JWT(app.config['SECRET_KEY'], expires_in=604800000)
 auth = HTTPTokenAuth('Bearer')
 

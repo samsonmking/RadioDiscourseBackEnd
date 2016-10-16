@@ -1,4 +1,3 @@
-from flask import Flask, request
 from flask_socketio import SocketIO, emit
 from rd_config import async_mode
 from radiodiscourse import torrents, app
