@@ -70,3 +70,6 @@ target/
 
 # dotenv
 .env
+
+# static front end
+public/
