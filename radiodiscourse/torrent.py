@@ -54,6 +54,7 @@ class Torrent(Resource):
                                      'ul': 0,
                                      'status': 'started'}
             torrents.move_to_end(torrenthash, last=False)
+        # pdb.set_trace()
         upload_thread = Thread(target=self._process_torrent, kwargs={'thash': torrenthash})
         upload_thread.start()
         update_thread = socketio.start_background_task(target=self._update_process_socket, thash=torrenthash)
@@ -73,7 +74,6 @@ class Torrent(Resource):
 
         gmusic = Musicmanager()
         gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
-
         songpath = tdata[0]["save_path"] + "/" + tdata[0]["name"]
         newsongs = []
         for file in os.listdir(songpath):
@@ -81,16 +81,15 @@ class Torrent(Resource):
                 newsongs.append(songpath + '/' + file)
 
         for song in newsongs:
+            print (song)
             results = gmusic.upload(song, enable_matching=False)
+            print(results)
             with lock:
                 percent = self._update_upload_results(results, newsongs) + float(torrents[torrenthash]['ul'])
                 torrents[torrenthash]['ul'] = "{0:.2f}".format(percent)
 
         with lock:
             torrents[torrenthash]['status'] = 'processed'
-            # Fix rounding errors
-            if torrents[torrenthash]['ul'] > 98:
-                torrents[torrenthash]['ul'] = 100
 
     def _update_process_socket(self, **kwargs):
         torrenthash = kwargs.get('thash', None)
