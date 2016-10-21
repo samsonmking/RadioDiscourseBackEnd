@@ -1,9 +1,10 @@
 whatusername = 'pinkyoshimi'
 whatpassword = 'tabasco4Life'
-oauthpath = '/home/dev/oauth.cred'
+oauthpath = u'/home/pi/.local/share/gmusicapi/oauth.cred'
 async_mode = None
 delugepassword = "deluge"
 debug = True
 users = {
     'Sam' : 'pizza12Slice'
 }
+static_url_path = '/home/pi/rd_web_service/public/'

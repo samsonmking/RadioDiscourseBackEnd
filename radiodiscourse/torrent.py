@@ -2,7 +2,7 @@ from flask_restful import Resource, reqparse
 from delugejsonclient import client
 from gmusicapi import Musicmanager
 import whatapi
-from rd_config import whatpassword, whatusername, delugepassword
+from rd_config import whatpassword, whatusername, delugepassword, oauthpath
 from socket_io import socketio
 from token_auth import  auth
 from radiodiscourse import torrents, lock
@@ -73,7 +73,7 @@ class Torrent(Resource):
                 torrents[torrenthash]["dl"] = "{0:.2f}".format(dl)
 
         gmusic = Musicmanager()
-        gmusic.login(oauth_credentials=u'/home/dev/oauth.cred', uploader_id=None, uploader_name=None)
+        gmusic.login(oauth_credentials=oauthpath, uploader_id=None, uploader_name=None)
         songpath = tdata[0]["save_path"] + "/" + tdata[0]["name"]
         newsongs = []
         for file in os.listdir(songpath):
