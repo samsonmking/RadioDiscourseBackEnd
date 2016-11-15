@@ -73,7 +73,7 @@ class Torrent(Resource):
             tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
             with lock:
                 dl = tdata[0]["progress"]
-                torrents[torrenthash]["dl"] = "{0:.2f}".format(dl)
+                torrents[torrenthash]["dl"] = dl
 
         gmusic = Musicmanager()
         logged_in = gmusic.login(oauth_credentials=oauthpath, uploader_id=None, uploader_name=None)
@@ -102,9 +102,7 @@ class Torrent(Resource):
         status = None
         while status != 'processed':
             with lock:
-                tdata = copy.deepcopy(torrents.get(torrenthash))
-                ul = tdata['ul']
-                tdata['ul'] = "{0:.2f}".format(ul)
+                tdata = torrents.get(torrenthash)
                 socketio.emit('torrentUpdate', tdata, namespace='/socket')
                 status = tdata.get('status')
             socketio.sleep(0.5)
