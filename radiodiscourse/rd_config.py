@@ -1,9 +1,9 @@
 whatusername = 'pinkyoshimi'
 whatpassword = 'tabasco4Life'
-oauthpath = u'/home/pi/.local/share/gmusicapi/oauth.cred'
+oauthpath = u'/srv/rdws/oauth.cred'
 async_mode = None
 delugepassword = "deluge"
-debug = True
+debug = False
 users = {
     'Sam' : 'pizza12Slice'
 }
