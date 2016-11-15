@@ -8,6 +8,8 @@ from token_auth import  auth
 from radiodiscourse import torrents, lock
 import os
 from threading import Thread
+import time
+import copy
 
 tclient = client.DelugeJsonClient(delugepassword)
 
@@ -67,13 +69,17 @@ class Torrent(Resource):
         dl = 0
         tdata = {}
         while dl < 100:
+            time.sleep(0.5)
+            tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
             with lock:
-                tdata = tclient.get_torrent_info(torrent_hash=[torrenthash])
                 dl = tdata[0]["progress"]
                 torrents[torrenthash]["dl"] = "{0:.2f}".format(dl)
 
         gmusic = Musicmanager()
-        gmusic.login(oauth_credentials=oauthpath, uploader_id=None, uploader_name=None)
+        logged_in = gmusic.login(oauth_credentials=oauthpath, uploader_id=None, uploader_name=None)
+        if not logged_in:
+            raise Exception('Failed to log into google music')
+            
         songpath = tdata[0]["save_path"] + "/" + tdata[0]["name"]
         newsongs = []
         for file in os.listdir(songpath):
@@ -86,7 +92,7 @@ class Torrent(Resource):
             print(results)
             with lock:
                 percent = self._update_upload_results(results, newsongs) + float(torrents[torrenthash]['ul'])
-                torrents[torrenthash]['ul'] = "{0:.2f}".format(percent)
+                torrents[torrenthash]['ul'] = percent
 
         with lock:
             torrents[torrenthash]['status'] = 'processed'
@@ -96,7 +102,9 @@ class Torrent(Resource):
         status = None
         while status != 'processed':
             with lock:
-                tdata = torrents.get(torrenthash)
+                tdata = copy.deepcopy(torrents.get(torrenthash))
+                ul = tdata['ul']
+                tdata['ul'] = "{0:.2f}".format(ul)
                 socketio.emit('torrentUpdate', tdata, namespace='/socket')
                 status = tdata.get('status')
             socketio.sleep(0.5)
