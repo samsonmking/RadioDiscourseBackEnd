@@ -54,7 +54,6 @@ class Torrent(Resource):
                                      'ul': 0,
                                      'status': 'started'}
             torrents.move_to_end(torrenthash, last=False)
-        # pdb.set_trace()
         upload_thread = Thread(target=self._process_torrent, kwargs={'thash': torrenthash})
         upload_thread.start()
         update_thread = socketio.start_background_task(target=self._update_process_socket, thash=torrenthash)
@@ -62,7 +61,6 @@ class Torrent(Resource):
 
     def _process_torrent(self, **kwargs):
         #wait for torrent to download
-
         torrenthash = kwargs["thash"]
         dl = 0
         tdata = {}

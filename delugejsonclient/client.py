@@ -113,10 +113,3 @@ class DelugeJsonClient:
                 return self._request(action, *args)
 
         return reply
-
-if __name__ == '__main__':
-    client = DelugeJsonClient()
-    #print(client.get_version())
-    #client.remove_torrent("eb0ae0559542e4980c9ac84217c60ef2c4733d06", False)
-    tfile = open("/var/lib/deluge/Downloads/yuck.torrent", 'rb')
-    print(client.add_torrent_verify(tfile, "/var/lib/deluge/Downloads"))
