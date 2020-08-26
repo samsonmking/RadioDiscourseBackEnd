@@ -42,4 +42,4 @@ requests==2.7.0
 rsa==3.4.2
 six==1.10.0
 validictory==1.0.1
-Werkzeug==0.11.10
+Werkzeug==0.15.3
